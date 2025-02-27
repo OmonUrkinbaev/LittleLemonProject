@@ -125,7 +125,7 @@ const OnboardingScreen = ({ navigation }) => {
       await AsyncStorage.setItem('@onboarding_complete', 'true');
       navigation.navigate('Profile'); // Navigate to Profile screen
     } catch (error) {
-      Alert.alert('Error', 'Failed to save onboarding status.');
+      Alert.alert('Error', 'Failed to save onboarding status.');      
     }
   };
 
@@ -150,6 +150,7 @@ const OnboardingScreen = ({ navigation }) => {
         style={styles.input}
         placeholder="Enter your email"
         value={email}
+        defaultValue='(email@gmail.com'
         onChangeText={setEmail}
         keyboardType="email-address"
       />
