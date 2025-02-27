@@ -1,39 +1,43 @@
-import * as React from 'react';
-import { View, Text } from 'react-native';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import OnboardingScreen from './screens/Onboarding';
-import React, { useState } from 'react';
+import { createStackNavigator } from '@react-navigation/stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import SplashScreen from './SplashScreen';
+import OnboardingScreen from './OnboardingScreen';
+import ProfileScreen from './ProfileScreen';
 
+const Stack = createStackNavigator();
 
+export default function App() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isOnboardingCompleted, setIsOnboardingCompleted] = useState(false);
 
-function HomeScreen() {
-    return (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <Text>Home Screen</Text>
-        </View>
-    );
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      const status = await AsyncStorage.getItem('isOnboardingCompleted');
+      setIsOnboardingCompleted(status === 'true');
+      setIsLoading(false);
+    };
+
+    checkOnboardingStatus();
+  }, []);
+
+  if (isLoading) {
+    // Show Splash Screen while loading
+    return <SplashScreen />;
+  }
+
+  return (
+    <NavigationContainer>
+      <Stack.Navigator>
+        {isOnboardingCompleted ? (
+          // Onboarding completed, show Profile screen
+          <Stack.Screen name="Profile" component={ProfileScreen} />
+        ) : (
+          // Onboarding not completed, show Onboarding screen
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
 }
-
-const Stack = createNativeStackNavigator();
-
-function App() {
-    if (state.isLoading) {
-        // We haven't finished reading from AsyncStorage yet
-        return <SplashScreen />;
-    }
-
-    return (
-        <Stack.Navigator>
-            {state.isOnboardingCompleted ? (
-                // Onboarding completed, user is signed in
-                <Stack.Screen name="Profile" component={ProfileScreen} />
-            ) : (
-                // User is NOT signed in
-                <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-            )}
-        </Stack.Navigator>
-    );
-}
-
-export default App;
