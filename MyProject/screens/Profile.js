@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  Button, 
+  StyleSheet, 
+  Image, 
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator 
+} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { MaskedTextInput } from 'react-native-mask-text';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,6 +22,7 @@ const ProfileScreen = ({ navigation, route }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [avatar, setAvatar] = useState(null);
   const [notifications, setNotifications] = useState({ promotions: false, updates: false });
+  const [isLoading, setIsLoading] = useState(false);
 
   // route.params: Used to access data passed from the OnboardingScreen (e.g., firstName and email)
   // State Variables:
@@ -23,6 +34,9 @@ const ProfileScreen = ({ navigation, route }) => {
   const isValidPhoneNumber = (phone) => /^\(\d{3}\) \d{3}-\d{4}$/.test(phone);
   // This function uses a regular expression to validate USA phone numbers in the format (123) 456-7890.
 
+  const isValidEmail = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -46,16 +60,44 @@ const ProfileScreen = ({ navigation, route }) => {
 
 
   const saveChanges = async () => {
-    const profileData = {
-      firstName,
-      lastName,
-      email,
-      phoneNumber,
-      avatar,
-      notifications,
-    };
-    await AsyncStorage.setItem('profileData', JSON.stringify(profileData));
-    alert('Changes saved successfully!');
+    if (isLoading) return;
+    setIsLoading(true);
+    try {
+      // Validate form data
+      if (!firstName.trim()) {
+        Alert.alert('Error', 'First name is required');
+        return;
+      }
+      if (!isValidEmail(email)) {
+        Alert.alert('Error', 'Please enter a valid email address');
+        return;
+      }
+      if (phoneNumber && !isValidPhoneNumber(phoneNumber)) {
+        Alert.alert('Error', 'Please enter a valid phone number');
+        return;
+      }
+    
+      try {
+        const profileData = {
+          firstName,
+          lastName,
+          email,
+          phoneNumber,
+          avatar,
+          notifications,
+        };
+        await AsyncStorage.setItem('profileData', JSON.stringify(profileData));
+        Alert.alert('Success', 'Profile updated successfully');
+        navigation.navigate('Home', { updatedAvatar: avatar });
+      } catch (error) {
+        Alert.alert('Error', 'Failed to save changes');
+        console.error('Error saving profile:', error);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save changes');
+    } finally {
+      setIsLoading(false);
+    }
   };
 // The saveChanges function creates a profileData object containing the user's profile information.
 // The profileData object is saved to AsyncStorage using the key 'profileData'.
@@ -63,24 +105,52 @@ const ProfileScreen = ({ navigation, route }) => {
 // An alert is displayed to confirm that the changes were saved successfully.
 
 
+
   const logout = async () => {
-    await AsyncStorage.clear();
-    navigation.navigate('Onboarding');
+    Alert.alert(
+      'Confirm Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Logout',
+          onPress: async () => {
+            try {
+              await AsyncStorage.clear();
+              navigation.navigate('Onboarding');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to logout');
+              console.error('Error during logout:', error);
+            }
+          }
+        }
+      ]
+    );
   };
 // The logout function clears all data stored in AsyncStorage.
 // The user is then navigated to the OnboardingScreen.
+// The AsyncStorage.clear function is used to remove all data stored in AsyncStorage.
+// The navigation.navigate function is used to navigate to the OnboardingScreen.
 
 useEffect(() => {
   const loadProfileData = async () => {
-    const data = await AsyncStorage.getItem('profileData');
-    if (data) {
-      const parsedData = JSON.parse(data);
-      setFirstName(parsedData.firstName);
-      setLastName(parsedData.lastName);
-      setEmail(parsedData.email);
-      setPhoneNumber(parsedData.phoneNumber);
-      setAvatar(parsedData.avatar);
-      setNotifications(parsedData.notifications);
+    try {
+      const data = await AsyncStorage.getItem('profileData');
+      if (data) {
+        const parsedData = JSON.parse(data);
+        setFirstName(parsedData.firstName || '');
+        setLastName(parsedData.lastName || '');
+        setEmail(parsedData.email || '');
+        setPhoneNumber(parsedData.phoneNumber || '');
+        setAvatar(parsedData.avatar || null);
+        setNotifications(parsedData.notifications || { promotions: false, updates: false });
+      }
+    } catch (error) {
+      console.error('Error loading profile data:', error);
+      Alert.alert('Error', 'Failed to load profile data');
     }
   };
   loadProfileData();
@@ -100,6 +170,7 @@ return (
         <Image source={{ uri: avatar }} style={styles.avatar} />
       ) : (
         <View style={styles.avatarPlaceholder}>
+        
           <Text style={styles.avatarText}>
             {firstName.charAt(0)}
             {lastName.charAt(0)}
@@ -154,7 +225,11 @@ return (
       />
     </View>
 
-    <Button title="Save Changes" onPress={saveChanges} />
+    <Button 
+      title={isLoading ? "Saving..." : "Save Changes"} 
+      onPress={saveChanges}
+      disabled={isLoading}
+    />
     <Button title="Logout" onPress={logout} color="red" />
   </View>
 );
@@ -181,6 +256,15 @@ const styles = StyleSheet.create({
   avatarText: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
   checkboxContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
   errorText: { color: 'red', marginBottom: 16 },
+  requiredInput: {
+    borderColor: '#495E57',
+    borderWidth: 2,
+  },
+  requiredText: {
+    color: '#495E57',
+    fontSize: 12,
+    marginBottom: 4,
+  }
 });
 
 export default ProfileScreen;
