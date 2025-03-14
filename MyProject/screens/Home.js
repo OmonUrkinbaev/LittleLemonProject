@@ -2,10 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { View, Image, StyleSheet, Pressable, FlatList, Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { initDatabase, saveMenuItems, getMenuItems, clearMenuItems } from '../database/database';
+
 
 const HomeScreen = ({ route }) => {
     const navigation = useNavigation();
     const [avatar, setAvatar] = useState(null);
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     const [menuItems, setMenuItems] = useState([]);
 
     useEffect(() => {
@@ -36,45 +40,79 @@ const HomeScreen = ({ route }) => {
 
     // }, []);
 
-        useEffect(() => {
-            const loadProfileImage = async () => {
-                try {
-                    const profileData = await AsyncStorage.getItem('profileData');
-                    if (profileData) {
-                        const parsedData = JSON.parse(profileData);
-                        if (parsedData.avatar) {
-                            setAvatar(parsedData.avatar);
-                        }
+    useEffect(() => {
+        const loadProfileImage = async () => {
+            try {
+                const profileData = await AsyncStorage.getItem('profileData');
+                if (profileData) {
+                    const parsedData = JSON.parse(profileData);
+                    if (parsedData.avatar) {
+                        setAvatar(parsedData.avatar);
                     }
-                } catch (error) {
-                    console.error('Error loading profile image:', error);
+                    if (parsedData.firstName) {
+                        setFirstName(parsedData.firstName);
+                    }
+                    if (parsedData.lastName) {
+                        setLastName(parsedData.lastName);
+                    }
                 }
-            };
+            } catch (error) {
+                console.error('Error loading profile image:', error);
+            }
+        };
 
-            loadProfileImage();
-        }, []);
+        loadProfileImage();
+    }, []);
 
     useEffect(() => {
         const fetchMenuData = async () => {
             try {
-                const response = await fetch(
-                    'https://raw.githubusercontent.com/Meta-Mobile-Developer-PC/Working-With-Data-API/main/capstone.json'
-                );
-                if (!response.ok) {
-                    throw new Error('Failed to fetch menu data');
+                await initDatabase();
+
+                // Try to load menu items from database first
+                const storedMenuItems = await getMenuItems();
+                if (storedMenuItems.length === 0) {
+                    const response = await fetch(
+                        'https://raw.githubusercontent.com/Meta-Mobile-Developer-PC/Working-With-Data-API/main/capstone.json'
+                    );
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch menu data');
+                    }
+                    const json = await response.json();
+                    if (json.menu && Array.isArray(json.menu)) {
+                        const menuData = json.menu.map(item => ({
+                            ...item,
+                            image: `https://github.com/Meta-Mobile-Developer-PC/Working-With-Data-API/blob/main/images/${item.image}?raw=true`
+                        }));
+                        setMenuItems(menuData);
+                        await saveMenuItems(menuData);
+                    } else {
+                        throw new Error('Invalid menu data format');
+                    }
                 }
-                const json = await response.json();
-                if (json.menu && Array.isArray(json.menu)) {
-                    const menuData = json.menu.map(item => ({
-                        ...item,
-                        image: `https://github.com/Meta-Mobile-Developer-PC/Working-With-Data-API/blob/main/images/${item.image}?raw=true`
-                    }));
-                    setMenuItems(menuData);
-                } else {
-                    throw new Error('Invalid menu data format');
+                else{
+                    //use the data from the database
+                    setMenuItems(storedMenuItems);
                 }
+                // const response = await fetch(
+                //     'https://raw.githubusercontent.com/Meta-Mobile-Developer-PC/Working-With-Data-API/main/capstone.json'
+                // );
+                // if (!response.ok) {
+                //     throw new Error('Failed to fetch menu data');
+                // }
+                // const json = await response.json();
+                // if (json.menu && Array.isArray(json.menu)) {
+                //     const menuData = json.menu.map(item => ({
+                //         ...item,
+                //         image: `https://github.com/Meta-Mobile-Developer-PC/Working-With-Data-API/blob/main/images/${item.image}?raw=true`
+                //     }));
+                //     setMenuItems(menuData);
+                // } else {
+                //     throw new Error('Invalid menu data format');
+                // }
             } catch (error) {
                 console.error('Error fetching menu data:', error);
+                Alert.alert('Error', 'Failed to load menu items');
                 // Optionally, set an error state and display a message to the user
             }
         };
@@ -102,17 +140,28 @@ const HomeScreen = ({ route }) => {
                     resizeMode="contain"
                 />
                 <Pressable
-                    onPress={() => navigation.navigate('ProfileScreen')}
+                    onPress={() => navigation.navigate('Profile')}
                     style={styles.avatarContainer}
                     accessibilityLabel="Profile picture"
                     accessibilityRole="button"
                 >
-                    {avatar && (
+                    {/* {avatar && (
                         <Image
-                        source={avatar ? { uri: avatar } : require('../assets/default-avatar.png')}
+                        source={avatar ? { uri: avatar } : require('../assets/scaryMan.png')}
                         style={styles.avatar}
                         accessibilityLabel="User avatar"
                     />
+                    )} */}
+                    {avatar ? (
+                        <Image source={{ uri: avatar }} style={styles.avatar} />
+                    ) : (
+                        <View style={styles.avatarPlaceholder}>
+
+                            <Text style={styles.avatarText}>
+                                {firstName.charAt(0)}
+                                {lastName.charAt(0)}
+                            </Text>
+                        </View>
                     )}
                 </Pressable>
             </View>
@@ -152,15 +201,27 @@ const styles = StyleSheet.create({
         width: 150,
     },
     avatarContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 70,
+        height: 70,
+        borderRadius: 50,
         overflow: 'hidden',
+        borderColor: '#495E57',
+        borderWidth: 2,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    avatar: {
-        width: '100%',
-        height: '100%',
+    avatar: { width: 100, height: 100, borderRadius: 50, alignSelf: 'center', marginBottom: 16 },
+    avatarPlaceholder: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: '#ccc',
+        justifyContent: 'center',
+        alignItems: 'center',
+        alignSelf: 'center',
+        marginBottom: 16,
     },
+    avatarText: { fontSize: 17, fontWeight: 'bold', color: '#fff' },
     menuList: {
         flex: 1,
     },

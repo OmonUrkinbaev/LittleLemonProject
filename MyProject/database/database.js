@@ -1,58 +1,68 @@
 import * as SQLite from 'expo-sqlite';
 
-const db = SQLite.openDatabase('little_lemon.db');
+let db = null;
 
-export const initDatabase = () => {
-  return new Promise((resolve, reject) => {
-    db.transaction(tx => {
-      tx.executeSql(
-        'CREATE TABLE IF NOT EXISTS menu (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, price REAL, image TEXT);',
-        [],
-        () => resolve(),
-        (_, error) => reject(error)
-      );
-    });
-  });
+// Initialize database connection
+const getDatabase = async () => {
+  if (!db) {
+    db = await SQLite.openDatabaseAsync('littlelemon.db');
+  }
+  return db;
 };
 
-export const saveMenuItems = (menuItems) => {
-  return new Promise((resolve, reject) => {
-    db.transaction(tx => {
-      menuItems.forEach(item => {
-        tx.executeSql(
-          'INSERT INTO menu (name, description, price, image) VALUES (?, ?, ?, ?);',
-          [item.name, item.description, item.price, item.image],
-          () => {},
-          (_, error) => reject(error)
+export const initDatabase = async () => {
+  try {
+    const database = await getDatabase();
+    await database.execAsync(`
+      CREATE TABLE IF NOT EXISTS menu (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        price REAL NOT NULL,
+        image TEXT,
+        category TEXT NOT NULL
+      );
+    `);
+  } catch (error) {
+    console.error('Error initializing database:', error);
+    throw error;
+  }
+};
+
+// Other functions remain similar but use getDatabase()
+export const saveMenuItems = async (menuItems) => {
+  try {
+    const database = await getDatabase();
+    await database.withTransactionAsync(async () => {
+      await database.runAsync('DELETE FROM menu;');
+      for (const item of menuItems) {
+        await database.runAsync(
+          'INSERT INTO menu (name, description, price, image, category) VALUES (?, ?, ?, ?, ?);',
+          [item.name, item.description, item.price, item.image, item.category]
         );
-      });
-      resolve();
+      }
     });
-  });
+  } catch (error) {
+    console.error('Error saving menu items:', error);
+    throw error;
+  }
 };
 
-export const getMenuItems = () => {
-  return new Promise((resolve, reject) => {
-    db.transaction(tx => {
-      tx.executeSql(
-        'SELECT * FROM menu;',
-        [],
-        (_, { rows: { _array } }) => resolve(_array),
-        (_, error) => reject(error)
-      );
-    });
-  });
+export const getMenuItems = async () => {
+  try {
+    const result = await db.getAllAsync('SELECT * FROM menu;');
+    return result;
+  } catch (error) {
+    console.error('Error fetching menu items:', error);
+    throw error;
+  }
 };
 
-export const clearMenuItems = () => {
-  return new Promise((resolve, reject) => {
-    db.transaction(tx => {
-      tx.executeSql(
-        'DELETE FROM menu;',
-        [],
-        () => resolve(),
-        (_, error) => reject(error)
-      );
-    });
-  });
+export const clearMenuItems = async () => {
+  try {
+    await db.runAsync('DELETE FROM menu;');
+  } catch (error) {
+    console.error('Error clearing menu items:', error);
+    throw error;
+  }
 };

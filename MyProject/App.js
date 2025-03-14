@@ -35,7 +35,8 @@ export default function App() {
           // Onboarding completed, show Profile screen
           <>
             <Stack.Screen name="Home" component={HomeScreen} />
-            <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           </>
         ) : (
           // Onboarding not completed, show Onboarding screen
