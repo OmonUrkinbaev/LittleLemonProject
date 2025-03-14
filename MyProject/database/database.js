@@ -66,3 +66,41 @@ export const clearMenuItems = async () => {
     throw error;
   }
 };
+
+export const filterByQueryAndCategories = async (query, selectedCategories) => {
+  try {
+    const database = await getDatabase();
+    
+    // Build the WHERE clause dynamically
+    let whereClause = '';
+    const params = [];
+    
+    // Handle categories filter
+    if (selectedCategories.length > 0) {
+      whereClause += `category IN (${selectedCategories.map(() => '?').join(',')})`;
+      params.push(...selectedCategories);
+    }
+    
+    // Handle search query
+    if (query) {
+      if (whereClause) whereClause += ' AND ';
+      whereClause += `(name LIKE ? OR description LIKE ?)`;
+      params.push(`%${query}%`, `%${query}%`);
+    }
+
+    // Build the final query
+    const sql = `
+      SELECT * FROM menu
+      ${whereClause ? `WHERE ${whereClause}` : ''}
+      ORDER BY name ASC;
+    `;
+
+    // Execute the query
+    const result = await database.getAllAsync(sql, params);
+    return result;
+    
+  } catch (error) {
+    console.error('Error filtering menu items:', error);
+    throw error;
+  }
+};

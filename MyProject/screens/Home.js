@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Image, StyleSheet, Pressable, FlatList, Text } from 'react-native';
+import { View, Image, StyleSheet, Pressable, FlatList, Text, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { initDatabase, saveMenuItems, getMenuItems, clearMenuItems } from '../database/database';
-
+import { initDatabase, saveMenuItems, getMenuItems, filterByQueryAndCategories } from '../database/database';
+import SearchBar from '../utils/SearchBar';
+import CategoryFilter from '../utils/CategoryFilter';
+import HeroBanner from '../utils/HeroBanner';
 
 const HomeScreen = ({ route }) => {
     const navigation = useNavigation();
@@ -11,34 +13,31 @@ const HomeScreen = ({ route }) => {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [menuItems, setMenuItems] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedCategories, setSelectedCategories] = useState([]);
+    const [availableCategories, setAvailableCategories] = useState([]);
+
+        // Add this useEffect to handle filtering
+        useEffect(() => {
+            const filterItems = async () => {
+                try {
+                    const filtered = await filterByQueryAndCategories(searchQuery, selectedCategories);
+                    setMenuItems(filtered);
+                } catch (error) {
+                    console.error('Filter error:', error);
+                    Alert.alert('Error', 'Failed to filter items');
+                }
+            };
+    
+            filterItems();
+        }, [searchQuery, selectedCategories]);
+
 
     useEffect(() => {
         if (route.params?.updatedAvatar) {
             setAvatar(route.params.updatedAvatar);
         }
     }, [route.params]);
-    //before it was [route.params?.updatedAvatar]
-
-    // useEffect(() => {
-    //     let isMounted = true;
-    //     const loadProfileImage = async () => {
-    //         try {
-    //             const profileData = await AsyncStorage.getItem('profileData');
-    //             if (profileData && isMounted) {
-    //                 const { avatar } = JSON.parse(profileData);
-    //                 setAvatar(avatar);
-    //             }
-    //         } catch (error) {
-    //             console.error('Error loading profile image:', error);
-    //         }
-    //     };
-
-    //     loadProfileImage();
-    //     return () => {
-    //         isMounted = false;
-    //     };
-
-    // }, []);
 
     useEffect(() => {
         const loadProfileImage = async () => {
@@ -64,61 +63,53 @@ const HomeScreen = ({ route }) => {
         loadProfileImage();
     }, []);
 
-    useEffect(() => {
+     // Update this useEffect to extract categories
+     useEffect(() => {
         const fetchMenuData = async () => {
             try {
                 await initDatabase();
-
-                // Try to load menu items from database first
                 const storedMenuItems = await getMenuItems();
+                
                 if (storedMenuItems.length === 0) {
                     const response = await fetch(
                         'https://raw.githubusercontent.com/Meta-Mobile-Developer-PC/Working-With-Data-API/main/capstone.json'
                     );
-                    if (!response.ok) {
-                        throw new Error('Failed to fetch menu data');
-                    }
                     const json = await response.json();
-                    if (json.menu && Array.isArray(json.menu)) {
-                        const menuData = json.menu.map(item => ({
-                            ...item,
-                            image: `https://github.com/Meta-Mobile-Developer-PC/Working-With-Data-API/blob/main/images/${item.image}?raw=true`
-                        }));
-                        setMenuItems(menuData);
-                        await saveMenuItems(menuData);
-                    } else {
-                        throw new Error('Invalid menu data format');
-                    }
-                }
-                else{
-                    //use the data from the database
+                    const menuData = json.menu.map(item => ({
+                        ...item,
+                        image: `https://github.com/Meta-Mobile-Developer-PC/Working-With-Data-API/blob/main/images/${item.image}?raw=true`
+                    }));
+                    await saveMenuItems(menuData);
+                    setMenuItems(menuData);
+                    
+                    // Extract categories
+                    const categories = [...new Set(menuData.map(item => item.category))];
+                    setAvailableCategories(categories);
+                } else {
                     setMenuItems(storedMenuItems);
+                    
+                    // Extract categories from stored items
+                    const categories = [...new Set(storedMenuItems.map(item => item.category))];
+                    setAvailableCategories(categories);
                 }
-                // const response = await fetch(
-                //     'https://raw.githubusercontent.com/Meta-Mobile-Developer-PC/Working-With-Data-API/main/capstone.json'
-                // );
-                // if (!response.ok) {
-                //     throw new Error('Failed to fetch menu data');
-                // }
-                // const json = await response.json();
-                // if (json.menu && Array.isArray(json.menu)) {
-                //     const menuData = json.menu.map(item => ({
-                //         ...item,
-                //         image: `https://github.com/Meta-Mobile-Developer-PC/Working-With-Data-API/blob/main/images/${item.image}?raw=true`
-                //     }));
-                //     setMenuItems(menuData);
-                // } else {
-                //     throw new Error('Invalid menu data format');
-                // }
             } catch (error) {
                 console.error('Error fetching menu data:', error);
                 Alert.alert('Error', 'Failed to load menu items');
-                // Optionally, set an error state and display a message to the user
             }
         };
 
         fetchMenuData();
     }, []);
+
+    const handleCategorySelect = (category) => {
+        setSelectedCategories(prev => {
+            if (prev.includes(category)) {
+                return prev.filter(c => c !== category);
+            }
+            return [...prev, category];
+        });
+    };
+
 
     const renderMenuItem = ({ item }) => (
         <View style={styles.menuItem}>
@@ -164,14 +155,27 @@ const HomeScreen = ({ route }) => {
                         </View>
                     )}
                 </Pressable>
+                
             </View>
-
+            <HeroBanner />
+            <View style={styles.body}>
+            <SearchBar onSearch={setSearchQuery} />
+                <CategoryFilter
+                    categories={availableCategories}
+                    selectedCategories={selectedCategories}
+                    onSelect={handleCategorySelect}
+                />
+            </View>
             <FlatList
                 data={menuItems}
                 renderItem={renderMenuItem}
-                keyExtractor={item => item.name}
+                keyExtractor={item => item.id.toString()}
                 style={styles.menuList}
+                ListEmptyComponent={
+                    <Text style={styles.emptyText}>No items found matching your criteria</Text>
+                }
             />
+
         </View>
     );
 };
@@ -192,9 +196,15 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingTop: 40,
+        paddingTop: 10,
         paddingBottom: 10,
         backgroundColor: '#fff',
+    },
+    body:{
+        backgroundColor: '#fff',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        padding: 16,
     },
     logo: {
         height: 50,
@@ -254,6 +264,12 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         color: '#495E57',
+    },
+    emptyText: {
+        textAlign: 'center',
+        marginTop: 20,
+        fontSize: 16,
+        color: '#666',
     },
 });
 
