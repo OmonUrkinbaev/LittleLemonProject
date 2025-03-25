@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Image, StyleSheet, Pressable, FlatList, Text, ScrollView } from 'react-native';
+import { View, Image, StyleSheet, Pressable, FlatList, Text, ScrollView, SafeAreaView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { initDatabase, saveMenuItems, getMenuItems, filterByQueryAndCategories } from '../database/database';
@@ -123,7 +123,7 @@ const HomeScreen = ({ route }) => {
     );
 
     return (
-        <View style={styles.container}>
+        <ScrollView style={styles.container}>
             <View style={styles.header}>
                 <Image
                     source={require('../assets/Logo.png')}
@@ -166,6 +166,7 @@ const HomeScreen = ({ route }) => {
                     onSelect={handleCategorySelect}
                 />
             </View>
+            <SafeAreaView>
             <FlatList
                 data={menuItems}
                 renderItem={renderMenuItem}
@@ -173,10 +174,12 @@ const HomeScreen = ({ route }) => {
                 style={styles.menuList}
                 ListEmptyComponent={
                     <Text style={styles.emptyText}>No items found matching your criteria</Text>
+                    
                 }
             />
+            </SafeAreaView>
 
-        </View>
+        </ScrollView>
     );
 };
 
@@ -202,7 +205,7 @@ const styles = StyleSheet.create({
     },
     body:{
         backgroundColor: '#fff',
-        flexDirection: 'row',
+        flexDirection: 'column',
         justifyContent: 'space-between',
         padding: 16,
     },
