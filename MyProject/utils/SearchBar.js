@@ -1,18 +1,14 @@
 // components/SearchBar.js
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, TextInput, StyleSheet } from 'react-native';
 
 const SearchBar = ({ onSearch }) => {
   const [query, setQuery] = useState('');
   
-  // Add debounce to prevent rapid API calls
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      onSearch(query);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [query]);
+  const handleTextChange = (text) => {
+    setQuery(text);
+    onSearch(text);
+  };
 
   return (
     <View style={styles.container}>
@@ -20,7 +16,7 @@ const SearchBar = ({ onSearch }) => {
         style={styles.input}
         placeholder="Search menu..."
         value={query}
-        onChangeText={setQuery}
+        onChangeText={handleTextChange}
         clearButtonMode="while-editing"
       />
     </View>

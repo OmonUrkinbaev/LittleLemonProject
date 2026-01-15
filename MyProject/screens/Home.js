@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Image, StyleSheet, Pressable, FlatList, Text, ScrollView, SafeAreaView } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Image, StyleSheet, Pressable, FlatList, Text, SafeAreaView, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { initDatabase, saveMenuItems, getMenuItems, filterByQueryAndCategories } from '../database/database';
@@ -16,9 +16,28 @@ const HomeScreen = ({ route }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [availableCategories, setAvailableCategories] = useState([]);
+    const [dbInitialized, setDbInitialized] = useState(false);
 
-        // Add this useEffect to handle filtering
-        useEffect(() => {
+    // Initialize database first
+    useEffect(() => {
+        const initDb = async () => {
+            try {
+                await initDatabase();
+                setDbInitialized(true);
+            } catch (error) {
+                console.error('Database initialization error:', error);
+                Alert.alert('Error', 'Failed to initialize database');
+            }
+        };
+
+        initDb();
+    }, []);
+
+    // Add this useEffect to handle filtering with debounce - ONLY after DB is ready
+    useEffect(() => {
+        if (!dbInitialized) return;
+
+        const timer = setTimeout(() => {
             const filterItems = async () => {
                 try {
                     const filtered = await filterByQueryAndCategories(searchQuery, selectedCategories);
@@ -30,7 +49,10 @@ const HomeScreen = ({ route }) => {
             };
     
             filterItems();
-        }, [searchQuery, selectedCategories]);
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [searchQuery, selectedCategories, dbInitialized]);
 
 
     useEffect(() => {
@@ -63,11 +85,10 @@ const HomeScreen = ({ route }) => {
         loadProfileImage();
     }, []);
 
-     // Update this useEffect to extract categories
-     useEffect(() => {
+    // Update this useEffect to skip initDatabase since it's already done
+    useEffect(() => {
         const fetchMenuData = async () => {
             try {
-                await initDatabase();
                 const storedMenuItems = await getMenuItems();
                 
                 if (storedMenuItems.length === 0) {
@@ -82,13 +103,11 @@ const HomeScreen = ({ route }) => {
                     await saveMenuItems(menuData);
                     setMenuItems(menuData);
                     
-                    // Extract categories
                     const categories = [...new Set(menuData.map(item => item.category))];
                     setAvailableCategories(categories);
                 } else {
                     setMenuItems(storedMenuItems);
                     
-                    // Extract categories from stored items
                     const categories = [...new Set(storedMenuItems.map(item => item.category))];
                     setAvailableCategories(categories);
                 }
@@ -98,8 +117,10 @@ const HomeScreen = ({ route }) => {
             }
         };
 
-        fetchMenuData();
-    }, []);
+        if (dbInitialized) {
+            fetchMenuData();
+        }
+    }, [dbInitialized]);
 
     const handleCategorySelect = (category) => {
         setSelectedCategories(prev => {
@@ -112,18 +133,20 @@ const HomeScreen = ({ route }) => {
 
 
     const renderMenuItem = ({ item }) => (
+    <Pressable style={styles.menuItemContainer}>
         <View style={styles.menuItem}>
             <Image source={{ uri: item.image }} style={styles.menuImage} />
             <View style={styles.menuInfo}>
                 <Text style={styles.menuTitle}>{item.name}</Text>
-                <Text style={styles.menuDescription}>{item.description}</Text>
-                <Text style={styles.menuPrice}>${item.price}</Text>
+                <Text style={styles.menuDescription} numberOfLines={2}>{item.description}</Text>
+                <Text style={styles.menuPrice}>${item.price.toFixed(2)}</Text>
             </View>
         </View>
-    );
+    </Pressable>
+);
 
-    return (
-        <ScrollView style={styles.container}>
+    const renderHeader = () => (
+        <View>
             <View style={styles.header}>
                 <Image
                     source={require('../assets/Logo.png')}
@@ -136,18 +159,10 @@ const HomeScreen = ({ route }) => {
                     accessibilityLabel="Profile picture"
                     accessibilityRole="button"
                 >
-                    {/* {avatar && (
-                        <Image
-                        source={avatar ? { uri: avatar } : require('../assets/scaryMan.png')}
-                        style={styles.avatar}
-                        accessibilityLabel="User avatar"
-                    />
-                    )} */}
                     {avatar ? (
                         <Image source={{ uri: avatar }} style={styles.avatar} />
                     ) : (
                         <View style={styles.avatarPlaceholder}>
-
                             <Text style={styles.avatarText}>
                                 {firstName.charAt(0)}
                                 {lastName.charAt(0)}
@@ -155,31 +170,33 @@ const HomeScreen = ({ route }) => {
                         </View>
                     )}
                 </Pressable>
-                
             </View>
             <HeroBanner />
             <View style={styles.body}>
-            <SearchBar onSearch={setSearchQuery} />
+                <SearchBar onSearch={setSearchQuery} />
                 <CategoryFilter
                     categories={availableCategories}
                     selectedCategories={selectedCategories}
                     onSelect={handleCategorySelect}
                 />
             </View>
-            <SafeAreaView>
+        </View>
+    );
+
+    const memoizedHeader = useMemo(() => renderHeader(), [avatar, firstName, lastName, availableCategories, selectedCategories]);
+
+    return (
+        <SafeAreaView style={styles.container}>
             <FlatList
                 data={menuItems}
                 renderItem={renderMenuItem}
                 keyExtractor={item => item.id.toString()}
-                style={styles.menuList}
+                ListHeaderComponent={memoizedHeader}
                 ListEmptyComponent={
                     <Text style={styles.emptyText}>No items found matching your criteria</Text>
-                    
                 }
             />
-            </SafeAreaView>
-
-        </ScrollView>
+        </SafeAreaView>
     );
 };
 
@@ -192,87 +209,101 @@ HomeScreen.defaultProps = {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 16,
+        backgroundColor: '#f9f9f9',
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingTop: 10,
-        paddingBottom: 10,
+        paddingTop: 15,
+        paddingBottom: 15,
         backgroundColor: '#fff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
     },
     body:{
         backgroundColor: '#fff',
         flexDirection: 'column',
         justifyContent: 'space-between',
         padding: 16,
+        marginBottom: 8,
     },
     logo: {
         height: 50,
         width: 150,
     },
     avatarContainer: {
-        width: 70,
-        height: 70,
-        borderRadius: 50,
+        width: 50,
+        height: 50,
+        borderRadius: 25,
         overflow: 'hidden',
         borderColor: '#495E57',
         borderWidth: 2,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    avatar: { width: 100, height: 100, borderRadius: 50, alignSelf: 'center', marginBottom: 16 },
+    avatar: { width: 50, height: 50, borderRadius: 25 },
     avatarPlaceholder: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: '#ccc',
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: '#495E57',
         justifyContent: 'center',
         alignItems: 'center',
-        alignSelf: 'center',
-        marginBottom: 16,
     },
-    avatarText: { fontSize: 17, fontWeight: 'bold', color: '#fff' },
-    menuList: {
-        flex: 1,
+    avatarText: { fontSize: 16, fontWeight: 'bold', color: '#fff' },
+    menuItemContainer: {
+        marginHorizontal: 12,
+        marginVertical: 6,
+        borderRadius: 12,
+        overflow: 'hidden',
+        backgroundColor: '#fff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+        elevation: 2,
     },
     menuItem: {
         flexDirection: 'row',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#cccccc',
+        padding: 12,
     },
     menuImage: {
-        width: 100,
-        height: 100,
+        width: 90,
+        height: 90,
         borderRadius: 8,
     },
     menuInfo: {
         flex: 1,
-        marginLeft: 16,
+        marginLeft: 12,
+        justifyContent: 'space-between',
     },
     menuTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
+        fontSize: 17,
+        fontWeight: '600',
         marginBottom: 4,
+        color: '#333',
     },
     menuDescription: {
-        fontSize: 14,
-        color: '#666666',
-        marginBottom: 4,
+        fontSize: 13,
+        color: '#777',
+        marginBottom: 6,
+        lineHeight: 18,
     },
     menuPrice: {
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: 'bold',
         color: '#495E57',
     },
     emptyText: {
         textAlign: 'center',
-        marginTop: 20,
+        marginTop: 40,
         fontSize: 16,
-        color: '#666',
+        color: '#999',
     },
 });
 

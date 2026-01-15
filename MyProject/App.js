@@ -30,18 +30,15 @@ export default function App() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator>
-        {isOnboardingCompleted ? (
-          // Onboarding completed, show Profile screen
-          <>
-            <Stack.Screen name="Home" component={HomeScreen} />
-            <Stack.Screen name="Profile" component={ProfileScreen} />
-            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-          </>
-        ) : (
-          // Onboarding not completed, show Onboarding screen
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-        )}
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false
+        }}
+        initialRouteName={isOnboardingCompleted ? 'Home' : 'Onboarding'}
+      >
+        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="Home" component={HomeScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

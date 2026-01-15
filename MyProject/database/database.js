@@ -50,7 +50,8 @@ export const saveMenuItems = async (menuItems) => {
 
 export const getMenuItems = async () => {
   try {
-    const result = await db.getAllAsync('SELECT * FROM menu;');
+    const database = await getDatabase();
+    const result = await database.getAllAsync('SELECT * FROM menu;');
     return result;
   } catch (error) {
     console.error('Error fetching menu items:', error);
@@ -60,7 +61,8 @@ export const getMenuItems = async () => {
 
 export const clearMenuItems = async () => {
   try {
-    await db.runAsync('DELETE FROM menu;');
+    const database = await getDatabase();
+    await database.runAsync('DELETE FROM menu;');
   } catch (error) {
     console.error('Error clearing menu items:', error);
     throw error;

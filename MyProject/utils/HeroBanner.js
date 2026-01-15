@@ -36,6 +36,7 @@ const colors = {
   primary: '#495E57',
   secondary: '#F4CE14',
   textLight: '#EDEFEE',
+  accent: '#EE9972',
 };
 
 const spacing = {
@@ -51,28 +52,37 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
     ...Platform.select({
       ios: {
-        paddingTop: spacing.xl + (height > 800 ? spacing.lg : 0),
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 5,
       },
     }),
   },
   heroContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    maxWidth: 1200, // Maximum content width for large screens
+    alignItems: 'center',
+    maxWidth: 1200,
     width: '100%',
     alignSelf: 'center',
+    gap: spacing.lg,
   },
   textContainer: {
     flex: 1,
-    marginRight: spacing.lg,
-    maxWidth: '60%',
+    maxWidth: '55%',
   },
   heroTitle: {
     color: colors.secondary,
-    fontSize: isSmallScreen ? 32 : 48,
+    fontSize: isSmallScreen ? 36 : 52,
     fontWeight: '700',
     fontFamily: 'MarkaziText-Regular',
     letterSpacing: 0.5,
@@ -80,36 +90,38 @@ const styles = StyleSheet.create({
   },
   heroSubtitle: {
     color: colors.textLight,
-    fontSize: isSmallScreen ? 24 : 32,
+    fontSize: isSmallScreen ? 26 : 36,
     fontFamily: 'MarkaziText-Regular',
     marginBottom: spacing.md,
   },
   heroDescription: {
     color: colors.textLight,
     fontSize: isSmallScreen ? 14 : 16,
-    lineHeight: isSmallScreen ? 20 : 24,
+    lineHeight: isSmallScreen ? 22 : 26,
     fontFamily: 'Karla-Regular',
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
+    opacity: 0.95,
   },
   imageContainer: {
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
+    aspectRatio: 0.85,
+    width: isSmallScreen ? 130 : 180,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.25,
+        shadowRadius: 10,
       },
       android: {
-        elevation: 8,
+        elevation: 12,
       },
     }),
   },
   heroImage: {
-    width: isSmallScreen ? 100 : 140,
-    height: isSmallScreen ? 120 : 160,
-    aspectRatio: 1,
+    width: '100%',
+    height: '100%',
   },
 });
 
